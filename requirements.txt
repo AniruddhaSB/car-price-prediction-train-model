@@ -5,3 +5,4 @@ Flask
 joblib
 datetime
 google-cloud-storage
+gcsfs

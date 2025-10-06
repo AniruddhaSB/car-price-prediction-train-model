@@ -5,14 +5,9 @@ from datetime import datetime
 
 import pandas as pd
 
-from modelTraining.buildModel import build_model_using_local_data
-from predictor.predict import load_model_from_cloud_storage, load_model_from_local, predict_car_price_using_pretrained_model
+from modelTraining.buildModel import build_model_using_data_from_cloud_storage
 
 app = Flask(__name__)
-
-#load models only once.
-local_model = load_model_from_local()
-cloud_model = load_model_from_cloud_storage()
 
 @app.route('/')
 def hello_world():
@@ -28,27 +23,12 @@ def hello_world():
 
     return response
 
-@app.route('/build_model_locally')
-def build_model_locally():
-    msg = build_model_using_local_data()
+@app.route('/build_model_gcs')
+def build_model_gcs():
+    msg = build_model_using_data_from_cloud_storage()
     return msg
 
-@app.route('/predict_local')
-def predict_car_price1():
-    query_string_params = request.args.to_dict(flat=False)
-    print(query_string_params)
-    df = pd.DataFrame(query_string_params)
-    msg = predict_car_price_using_pretrained_model(local_model, userInput_df = df)
-    return msg
-
-@app.route('/predict_gcs')
-def predict_car_price2():
-    query_string_params = request.args.to_dict(flat=False)
-    df = pd.DataFrame(query_string_params)
-    msg = predict_car_price_using_pretrained_model(cloud_model, userInput_df = df)
-    return msg
-
-@app.route('/ModelFound')
+@app.route('/DataFound')
 def check_if_model_exists():
 
     dir = request.args.get('dir')
@@ -57,7 +37,7 @@ def check_if_model_exists():
     else:
         msg = f"Error: Directory exist: {dir}"
 
-        search_path = os.path.join(dir, "*_model_*.pkl")
+        search_path = os.path.join(dir, "*.csv")
         list_of_files = glob.glob(search_path)
         msg = f"Directory Found. Files matching pattern: {len(list_of_files)}"
         sorted_files = sorted(list_of_files)

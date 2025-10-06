@@ -6,12 +6,19 @@ import joblib
 import numpy as np
 from sklearn.metrics import mean_squared_error
 from .preprocessing import split_data, load_data_from_local_csv, preprocess
+from google.cloud import storage
 
-def build_model_using_local_data():
+def build_model_using_data_from_cloud_storage():
     try:
         #Load data
-        file_path = os.path.join("modelTraining", "data", "car_sales_data.csv")
-        df = load_data_from_local_csv(file_path)
+        # Replace with your bucket name and model file name
+        BUCKET_NAME = 'prebuilt-models'
+        DATA_FILE = 'car-price-predictor/data/car_sales_data.csv'
+        GCS_URI = f"gs://{BUCKET_NAME}/{DATA_FILE}"
+        print(GCS_URI)
+
+        df = load_data_from_local_csv(GCS_URI)
+        
         print("Data frame loaded")
         print(df.shape)
 
@@ -29,7 +36,7 @@ def build_model_using_local_data():
         rmse = evaluate_model(model, X_test, y_test)
         print(f"Root mean square error for the model is: [{rmse}].")
 
-        export_model(model)
+        export_model_jobllib(model)
         print(f"Model successfully exported.")
 
         return "successfully completed."
@@ -53,5 +60,33 @@ def evaluate_model(model, X_test, y_test):
 def export_model(model):
     current_time = datetime.now()
     formatted_time = current_time.strftime("%Y%m%d%H%M%S")
-    filename = f".\models\liner_regression_model_{formatted_time}.pkl"
+    filename = f".\\models\liner_regression_model_{formatted_time}.pkl"
     joblib.dump(model, filename)
+
+def export_model_jobllib(model):
+    try:
+        BUCKET_NAME = 'prebuilt-models'
+        MODEL_PATH = 'car-price-predictor/python-models'
+        GCS_ARTIFACT_PATH = f'gs://{BUCKET_NAME}/{MODEL_PATH}/model.joblib'
+        joblib.dump(model, GCS_ARTIFACT_PATH)
+    except Exception as e:
+        return f"An unexpected error occurred: {e}"
+
+def export_model_jobllib111(model):
+    current_time = datetime.now()
+    formatted_time = current_time.strftime("%Y%m%d%H%M%S")
+    filename = f"model_{formatted_time}.joblib"
+    
+    BUCKET_NAME = 'prebuilt-models'
+    MODEL_PATH = 'car-price-predictor/python-models'
+    GCS_ARTIFACT_PATH = f'gs://{BUCKET_NAME}/{MODEL_PATH}/{filename}'
+
+    try:
+        #storage_client = storage.Client()
+        #bucket = storage_client.bucket(BUCKET_NAME)
+        #blob = bucket.blob(GCS_ARTIFACT_PATH)
+        #blob.upload_from_filename(filename)
+        print(GCS_ARTIFACT_PATH)
+        joblib.dump(model, GCS_ARTIFACT_PATH)
+    except Exception as e:
+        return f"An unexpected error occurred: {e}"
