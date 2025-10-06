@@ -57,36 +57,42 @@ def evaluate_model(model, X_test, y_test):
 
     return rmse
 
-def export_model(model):
-    current_time = datetime.now()
-    formatted_time = current_time.strftime("%Y%m%d%H%M%S")
-    filename = f".\\models\liner_regression_model_{formatted_time}.pkl"
-    joblib.dump(model, filename)
-
 def export_model_jobllib(model):
     try:
         BUCKET_NAME = 'prebuilt-models'
         MODEL_PATH = 'car-price-predictor/python-models'
         GCS_ARTIFACT_PATH = f'gs://{BUCKET_NAME}/{MODEL_PATH}/model.joblib'
-        joblib.dump(model, GCS_ARTIFACT_PATH)
+        #joblib.dump(model, GCS_ARTIFACT_PATH)
+        joblib.dump(model, f'gs://{BUCKET_NAME}/model.joblib')
+
+        print("Running IAM write permission check...")
+        has_access, message = check_bucket_write_access(BUCKET_NAME)
+
+        print(has_access, message)
+
     except Exception as e:
         return f"An unexpected error occurred: {e}"
 
-def export_model_jobllib111(model):
-    current_time = datetime.now()
-    formatted_time = current_time.strftime("%Y%m%d%H%M%S")
-    filename = f"model_{formatted_time}.joblib"
-    
-    BUCKET_NAME = 'prebuilt-models'
-    MODEL_PATH = 'car-price-predictor/python-models'
-    GCS_ARTIFACT_PATH = f'gs://{BUCKET_NAME}/{MODEL_PATH}/{filename}'
-
+def check_bucket_write_access(bucket_name):
+    """
+    Checks if the authenticated user has permission to create objects 
+    (i.e., write/dump the model file) in the GCS bucket.
+    """
     try:
-        #storage_client = storage.Client()
-        #bucket = storage_client.bucket(BUCKET_NAME)
-        #blob = bucket.blob(GCS_ARTIFACT_PATH)
-        #blob.upload_from_filename(filename)
-        print(GCS_ARTIFACT_PATH)
-        joblib.dump(model, GCS_ARTIFACT_PATH)
+        client = storage.Client()
+        bucket = client.bucket(bucket_name)
+        
+        # Test for the required permission to create a new object
+        required_permission = 'storage.objects.create'
+        permissions = bucket.test_iam_permissions([required_permission])
+        
+        if required_permission in permissions:
+            return True, f"Success: User has the required '{required_permission}' permission."
+        else:
+            return False, (f"Failure: User LACKS the required '{required_permission}' permission on bucket '{bucket_name}'. "
+                           "Ensure your IAM role includes 'Storage Object Creator' or 'Storage Admin'.")
+            
+    except gcp_exceptions.NotFound:
+        return False, f"Failure: The bucket '{bucket_name}' does not exist or is inaccessible."
     except Exception as e:
-        return f"An unexpected error occurred: {e}"
+        return False, f"Failure: Cannot verify permissions due to client error: {e}"
