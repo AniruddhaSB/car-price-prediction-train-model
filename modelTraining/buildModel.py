@@ -60,15 +60,14 @@ def evaluate_model(model, X_test, y_test):
 def export_model_jobllib(model):
     try:
         BUCKET_NAME = 'prebuilt-models'
+        #print("Running IAM write permission check...")
+        #has_access, message = check_bucket_write_access(BUCKET_NAME)
+        #print(has_access, message)
+
         MODEL_PATH = 'car-price-predictor/python-models'
         GCS_ARTIFACT_PATH = f'gs://{BUCKET_NAME}/{MODEL_PATH}/model.joblib'
-        #joblib.dump(model, GCS_ARTIFACT_PATH)
-        joblib.dump(model, f'gs://{BUCKET_NAME}/model.joblib')
-
-        print("Running IAM write permission check...")
-        has_access, message = check_bucket_write_access(BUCKET_NAME)
-
-        print(has_access, message)
+        joblib.dump(model, "model.joblib") # Write locally first
+        #joblib.dump(model, GCS_ARTIFACT_PATH) # Write to GCS directly
 
     except Exception as e:
         return f"An unexpected error occurred: {e}"
