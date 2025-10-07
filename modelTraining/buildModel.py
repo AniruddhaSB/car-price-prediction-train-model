@@ -5,6 +5,7 @@ from sklearn.linear_model import LinearRegression
 import joblib
 import numpy as np
 from sklearn.metrics import mean_squared_error
+
 from .preprocessing import split_data, load_data_from_local_csv, preprocess
 from google.cloud import storage
 
@@ -39,6 +40,9 @@ def build_model_using_data_from_cloud_storage():
         export_model_jobllib(model)
         print(f"Model successfully exported.")
 
+        upload_model(model)
+        print(f"Model successfully uploaded.")
+
         return "successfully completed."
     except Exception as e:
         return f"An unexpected error occurred: {e}"
@@ -59,39 +63,54 @@ def evaluate_model(model, X_test, y_test):
 
 def export_model_jobllib(model):
     try:
-        BUCKET_NAME = 'prebuilt-models'
-        #print("Running IAM write permission check...")
-        #has_access, message = check_bucket_write_access(BUCKET_NAME)
-        #print(has_access, message)
+        file_path = "model.joblib"
+        if os.path.exists(file_path):
+            print("Existing file found. Deleting...")
+            
+            # Delete the file using os.remove()
+            os.remove(file_path)
+            print("Successfully deleted existing file.")
+        else:
+            print("No existing file found.")
 
-        MODEL_PATH = 'car-price-predictor/python-models'
-        GCS_ARTIFACT_PATH = f'gs://{BUCKET_NAME}/{MODEL_PATH}/model.joblib'
-        joblib.dump(model, "model.joblib") # Write locally first
-        #joblib.dump(model, GCS_ARTIFACT_PATH) # Write to GCS directly
+        joblib.dump(model, file_path) # Write locally first
 
     except Exception as e:
         return f"An unexpected error occurred: {e}"
 
-def check_bucket_write_access(bucket_name):
-    """
-    Checks if the authenticated user has permission to create objects 
-    (i.e., write/dump the model file) in the GCS bucket.
-    """
+def upload_model(model):
     try:
-        client = storage.Client()
-        bucket = client.bucket(bucket_name)
-        
-        # Test for the required permission to create a new object
-        required_permission = 'storage.objects.create'
-        permissions = bucket.test_iam_permissions([required_permission])
-        
-        if required_permission in permissions:
-            return True, f"Success: User has the required '{required_permission}' permission."
-        else:
-            return False, (f"Failure: User LACKS the required '{required_permission}' permission on bucket '{bucket_name}'. "
-                           "Ensure your IAM role includes 'Storage Object Creator' or 'Storage Admin'.")
-            
-    except gcp_exceptions.NotFound:
-        return False, f"Failure: The bucket '{bucket_name}' does not exist or is inaccessible."
+        source_file_name = ".\model.joblib"
+        MODEL_PATH = 'car-price-predictor/python-models'
+        #GCS_ARTIFACT_PATH = f'gs://{BUCKET_NAME}/{MODEL_PATH}/model.joblib'
+        GCS_ARTIFACT_PATH = "model.joblib"
+        upload_blob("gs://prebuilt-models/car-price-predictor/python-models", source_file_name, GCS_ARTIFACT_PATH)    
     except Exception as e:
-        return False, f"Failure: Cannot verify permissions due to client error: {e}"
+        return f"An unexpected error occurred: {e}"
+    
+def upload_blob(bucket_name, source_file_name, destination_blob_name):
+    """Uploads a file to the bucket."""
+    # The ID of your GCS bucket
+    # bucket_name = "your-bucket-name"
+    # The path to your file to upload
+    # source_file_name = "local/path/to/file"
+    # The ID of your GCS object
+    # destination_blob_name = "storage-object-name"
+
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(destination_blob_name)
+
+    # Optional: set a generation-match precondition to avoid potential race conditions
+    # and data corruptions. The request to upload is aborted if the object's
+    # generation number does not match your precondition. For a destination
+    # object that does not yet exist, set the if_generation_match precondition to 0.
+    # If the destination object already exists in your bucket, set instead a
+    # generation-match precondition using its generation number.
+    generation_match_precondition = 0
+
+    blob.upload_from_filename(source_file_name, if_generation_match=generation_match_precondition)
+
+    print(
+        f"File {source_file_name} uploaded to {destination_blob_name}."
+    )
